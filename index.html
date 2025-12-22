@@ -1,677 +1,174 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>Планирование развозки сотрудников</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    :root{
-      --blue:#2563eb; --sky:#0ea5e9; --dark:#1e40af;
-      --bg:#eef2ff; --card:#fff; --border:#dbe1f2; --text:#0f172a; --muted:#64748b;
-    }
-    body{
-      margin:0; padding:20px;
-      font-family:Inter,system-ui,sans-serif;
-      background:radial-gradient(circle at top left,#e0f2fe,#eef2ff);
-      color:var(--text);
-    }
-    h1{ margin:0 0 12px; color:var(--dark); }
-    .topbar{
-      display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;
-      margin-bottom:14px;
-    }
-    .topbar .block{
-      min-width:220px; display:flex; flex-direction:column; gap:6px; font-size:13px;
-    }
-    .tabs{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-    .tab-btn{
-      padding:10px 18px; border-radius:999px;
-      border:1px solid var(--border); background:#dbeafe;
-      font-weight:800; color:var(--dark); cursor:pointer;
-    }
-    .tab-btn.active{ background:var(--dark); color:#fff; border-color:var(--dark); }
-    .tab{ display:none; }
-    .tab.active{ display:block; }
-
-    .card{
-      background:var(--card); border:1px solid var(--border);
-      border-radius:14px; padding:16px;
-      box-shadow:0 10px 30px rgba(15,23,42,.08);
-    }
-    .controls{
-      display:flex; flex-wrap:wrap; gap:12px 16px; align-items:flex-end;
-      margin-bottom:12px;
-    }
-    .filter{
-      min-width:200px; display:flex; flex-direction:column; gap:6px; font-size:13px;
-    }
-    .controls-right{
-      margin-left:auto; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
-    }
-
-    input,select{
-      width:100%; box-sizing:border-box;
-      padding:6px 8px; border-radius:8px;
-      border:1px solid var(--border);
-      font-size:14px; outline:none;
-      background:#fff;
-    }
-    input:focus,select:focus{
-      border-color:var(--blue);
-      box-shadow:0 0 0 2px rgba(37,99,235,.14);
-    }
-
-    .btn{
-      border:none; cursor:pointer;
-      border-radius:999px; padding:9px 14px; font-weight:900; font-size:14px;
-    }
-    .btn-blue{ background:var(--blue); color:#fff; }
-    .btn-sky{ background:var(--sky); color:#fff; }
-    .btn-danger{ background:#dc2626; color:#fff; border-radius:8px; padding:6px 10px; font-weight:1000; }
-    .btn:disabled{ opacity:.45; cursor:not-allowed; }
-
-    table{ width:100%; border-collapse:collapse; font-size:14px; }
-    th{
-      padding:10px 8px; text-align:left;
-      background:linear-gradient(90deg,#dbeafe,#e0ecff);
-      color:var(--dark);
-      border-bottom:1px solid var(--border);
-    }
-    td{ padding:6px 8px; border-bottom:1px solid var(--border); }
-    tr:nth-child(even) td{ background:#f6f8ff; }
-
-    .muted{ color:var(--muted); font-size:12px; }
-    .center{ text-align:center; }
-
-    /* Модалка импорта */
-    #import-modal{
-      display:none; position:fixed; inset:0; z-index:9999;
-      background:rgba(2,6,23,.55); padding:18px;
-    }
-    #import-modal .box{
-      max-width:980px; margin:30px auto;
-      background:#fff; border:1px solid var(--border); border-radius:14px;
-      box-shadow:0 20px 70px rgba(0,0,0,.25);
-      padding:16px;
-    }
-    #import-text{
-      width:100%; height:320px; box-sizing:border-box;
-      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size:12px;
-      padding:10px;
-      border:1px solid var(--border);
-      border-radius:10px;
-      outline:none;
-    }
-    .row{ display:flex; gap:12px; justify-content:space-between; align-items:center; flex-wrap:wrap; }
-  </style>
+<meta charset="UTF-8">
+<title>Планирование транспорта</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:system-ui;padding:20px;background:#eef2ff}
+h1{color:#1e40af}
+select,input,button{padding:6px}
+table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff}
+th,td{border:1px solid #ccc;padding:6px}
+th{background:#e0ecff}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.btn{background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer}
+.btn.red{background:#dc2626}
+</style>
 </head>
+
 <body>
+<h1>Планирование развозки (Firestore)</h1>
 
-<h1>Планирование развозки сотрудников</h1>
+<div class="controls">
+  <select id="deptFilter">
+    <option value="">Все участки</option>
+  </select>
 
-<!-- Роли -->
-<div class="topbar">
-  <label class="block">
-    Роль:
-    <select id="role">
-      <option value="foreman">Начальник участка</option>
-      <option value="transport">Транспорт</option>
-      <option value="admin">Админ</option>
-    </select>
-  </label>
+  <input id="search" placeholder="Поиск ФИО">
 
-  <div class="muted" id="role-hint" style="align-self:flex-end;">
-    —
-  </div>
+  <button id="addBtn" class="btn">+ Добавить</button>
 </div>
 
-<div class="tabs">
-  <button class="tab-btn active" data-tab="employees">Сотрудники</button>
-  <button class="tab-btn" data-tab="summary">Сводка</button>
-</div>
+<table>
+<thead>
+<tr>
+<th>ФИО</th>
+<th>Участок</th>
+<th>Общежитие</th>
+<th>Откуда</th>
+<th>Куда</th>
+<th></th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
 
-<!-- Вкладка 1 -->
-<div id="tab-employees" class="tab active">
-  <div class="card">
-    <div class="controls">
-      <label class="filter">
-        Участок:
-        <select id="dept-filter"></select>
-      </label>
+<script type="module">
+/* ---------------- FIREBASE ---------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-      <label class="filter">
-        Общежитие:
-        <select id="dorm-filter"></select>
-      </label>
+/* 🔴 ВСТАВЬ СВОЙ CONFIG */
+const firebaseConfig = {
+  apiKey: "PASTE_HERE",
+  authDomain: "PASTE_HERE",
+  projectId: "PASTE_HERE",
+  storageBucket: "PASTE_HERE",
+  messagingSenderId: "PASTE_HERE",
+  appId: "PASTE_HERE"
+};
 
-      <label class="filter" style="min-width:260px;">
-        Поиск по ФИО:
-        <input id="fio-search" placeholder="Введите ФИО..." />
-      </label>
-
-      <div class="controls-right">
-        <button id="import-btn" class="btn btn-sky">Импорт из Excel</button>
-        <button id="add-employee" class="btn btn-blue">+ Добавить</button>
-      </div>
-    </div>
-
-    <div class="muted" style="margin-bottom:10px;">
-      Начальник участка может редактировать/добавлять только в выбранном участке. Транспорт — только просмотр.
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>ФИО</th>
-          <th>Участок</th>
-          <th>Общежитие</th>
-          <th>Откуда</th>
-          <th>Куда</th>
-          <th class="center">Удалить</th>
-        </tr>
-      </thead>
-      <tbody id="employees-tbody"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Вкладка 2 -->
-<div id="tab-summary" class="tab">
-  <div class="card">
-    <div class="row" style="margin-bottom:12px;">
-      <button id="refresh-summary" class="btn btn-blue">Обновить сводку</button>
-      <div class="muted">Считаются только сотрудники с заполненными “Откуда” и “Куда”. “Дом” → общежитие сотрудника.</div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Откуда</th>
-          <th>Куда</th>
-          <th>Кол-во</th>
-        </tr>
-      </thead>
-      <tbody id="summary-tbody"></tbody>
-    </table>
-
-    <div class="muted" style="margin-top:10px;">
-      Всего людей (с маршрутом): <span id="summary-total">0</span>
-    </div>
-  </div>
-</div>
-
-<!-- Модалка импорта -->
-<div id="import-modal">
-  <div class="box">
-    <div class="row">
-      <div style="font-weight:1000; color:var(--dark);">Импорт сотрудников из Excel</div>
-      <button id="import-close" class="btn btn-danger" style="border-radius:999px;">Закрыть</button>
-    </div>
-
-    <p class="muted" style="margin:10px 0 8px;">
-      Вставь таблицу из Excel (3 колонки табами): <b>ФИО</b> / <b>Участок</b> / <b>Общежитие</b>. Заголовок “ФИО” можно оставлять.
-    </p>
-
-    <textarea id="import-text" placeholder="ФИО	Участок	Общежитие
-Иванов Иван	ЛЦП №1	Летово"></textarea>
-
-    <div class="row" style="margin-top:10px;">
-      <label class="muted" style="display:flex; align-items:center; gap:8px;">
-        <input type="checkbox" id="import-replace-all" />
-        Заменить весь список (иначе — добавить/обновить по ФИО)
-      </label>
-
-      <button id="import-run" class="btn btn-blue">Импортировать</button>
-    </div>
-
-    <div id="import-result" class="muted" style="margin-top:10px;"></div>
-  </div>
-</div>
-
-<script>
-/* ---------------- DOM ---------------- */
-const roleEl = document.getElementById("role");
-const roleHintEl = document.getElementById("role-hint");
-
-const deptFilterEl = document.getElementById("dept-filter");
-const dormFilterEl = document.getElementById("dorm-filter");
-const fioSearchEl = document.getElementById("fio-search");
-
-const addBtn = document.getElementById("add-employee");
-const importBtn = document.getElementById("import-btn");
-
-const employeesTbody = document.getElementById("employees-tbody");
-
-const summaryTbody = document.getElementById("summary-tbody");
-const summaryTotalEl = document.getElementById("summary-total");
-const refreshSummaryBtn = document.getElementById("refresh-summary");
-
-const importModal = document.getElementById("import-modal");
-const importClose = document.getElementById("import-close");
-const importRun = document.getElementById("import-run");
-const importText = document.getElementById("import-text");
-const importReplaceAll = document.getElementById("import-replace-all");
-const importResult = document.getElementById("import-result");
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const col = collection(db, "employees");
 
 /* ---------------- DATA ---------------- */
-const STORAGE = "transportEmployees_smart_import_v1";
-
-/* базовые справочники (могут расширяться импортом) */
-let departments = [
-  "ЛЦП №1","ЛЦП №2","ЛЦП№3","Потолки","Арм.производство","Цех подготовки",
-  "СТК","ВИС","ЭОМ","БСЦ","Кровля","Фасад"
+const departments = [
+  "ЛЦП №1","ЛЦП №2","ЛЦП№3","Потолки","Арм.производство",
+  "Цех подготовки","СТК","ВИС","ЭОМ","БСЦ","Кровля","Фасад"
 ];
 
-let dorms = [
-  "Общежитие Советская 4",
-  "Общежитие Мытищи",
-  "Общежитие Плещеева",
-  "Общежитие Бекасово",
-  "Общежитие Летово",
-  "Общежитие Марушкино",
-  "Общежитие Войковская"
+const dorms = [
+  "Общежитие Летово","Общежитие Мытищи","Общежитие Плещеева",
+  "Общежитие Бекасово","Общежитие Марушкино","Общежитие Советская 4"
 ];
 
-const locations = [
+const places = [
   "Завод Марушкино","Яковлево","9я Северная","Новохохловская",
   "Таруса","Черемушки","Королев/Коммунарка","Дом"
 ];
 
-let employees = JSON.parse(localStorage.getItem(STORAGE) || "null") || [];
+let employees = [];
 
-/* ---------------- HELPERS ---------------- */
-function escapeHtml(s){
-  return String(s ?? "")
-    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
-}
+/* ---------------- UI ---------------- */
+const tbody = document.getElementById("tbody");
+const deptFilter = document.getElementById("deptFilter");
+const search = document.getElementById("search");
 
-function nameKey(fullName){
-  return (fullName || "")
-    .replace(/\u00A0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-const deptMap = new Map([
-  ["лцп №3", "ЛЦП№3"], ["лцп 3", "ЛЦП№3"], ["лцп№3", "ЛЦП№3"],
-  ["цпп", "Цех подготовки"], ["цех подготовки", "Цех подготовки"],
-  ["арматурный цех", "Арм.производство"],
-  ["арм. производство", "Арм.производство"], ["арм.производство", "Арм.производство"],
-  ["стк", "СТК"], ["вис", "ВИС"], ["эом", "ЭОМ"],
-]);
-
-function normalizeDepartment(v){
-  const s = (v || "").replace(/\u00A0/g," ").replace(/\s+/g," ").trim();
-  if (!s) return "";
-  const k = s.toLowerCase();
-  return deptMap.get(k) || s;
-}
-
-const dormMap = new Map([
-  ["летово","Общежитие Летово"],
-  ["мытищи","Общежитие Мытищи"],
-  ["плещеева","Общежитие Плещеева"],
-  ["бекасово","Общежитие Бекасово"],
-  ["марушкино","Общежитие Марушкино"],
-  ["советская","Общежитие Советская 4"],
-  ["войковская","Общежитие Войковская"],
-]);
-
-function normalizeDorm(v){
-  const s = (v || "").replace(/\u00A0/g," ").replace(/\s+/g," ").trim();
-  if (!s) return "";
-  if (s.toLowerCase().startsWith("общежитие")) return s;
-  return dormMap.get(s.toLowerCase()) || s;
-}
-
-function ensureInList(list, value){
-  const s = (value || "").trim();
-  if (!s) return;
-  if (!list.includes(s)) list.push(s);
-}
-
-function save(){
-  localStorage.setItem(STORAGE, JSON.stringify(employees));
-}
-
-function opts(arr, selected=""){
-  const s = (selected || "").trim();
-  return `<option value="">—</option>` +
-    arr.map(x => `<option value="${x}" ${x===s?"selected":""}>${x}</option>`).join("");
-}
-
-/* показываем selected даже если он не в справочнике */
-function optsWithExtra(arr, selected=""){
-  const s = (selected || "").trim();
-  const has = s && arr.includes(s);
-  const extra = (!has && s) ? `<option value="${s}" selected>${s}</option>` : "";
-  return `<option value="">—</option>` + extra +
-    arr.map(x => `<option value="${x}" ${x===s?"selected":""}>${x}</option>`).join("");
-}
-
-/* ---------------- ROLE LOGIC ---------------- */
-function getRole(){ return roleEl.value; }
-
-function canEditRow(emp){
-  const role = getRole();
-  if (role === "admin") return true;
-  if (role === "transport") return false;
-  // foreman: только свой участок
-  const selectedDept = (deptFilterEl.value || "").trim();
-  return !!selectedDept && (emp.department || "").trim() === selectedDept;
-}
-
-function canAdd(){
-  const role = getRole();
-  if (role === "admin") return true;
-  if (role === "transport") return false;
-  // foreman: можно добавлять ТОЛЬКО если выбран участок
-  return !!(deptFilterEl.value || "").trim();
-}
-
-function updateRoleUI(){
-  const role = getRole();
-  if (role === "admin") roleHintEl.textContent = "Админ: можно всё.";
-  if (role === "transport") roleHintEl.textContent = "Транспорт: только просмотр (редактирование заблокировано).";
-  if (role === "foreman") roleHintEl.textContent = "Начальник участка: выбери участок — тогда можно добавлять и редактировать только его сотрудников.";
-
-  addBtn.disabled = !canAdd();
-  importBtn.disabled = (role === "transport"); // импорт нельзя транспорту (чтобы не ломал справочник)
-  renderTable(); // чтобы включить/выключить поля
-}
-
-/* ---------------- FILTERS ---------------- */
-function rebuildFilters(){
-  deptFilterEl.innerHTML = `<option value="">Все участки</option>` +
-    departments.map(d => `<option value="${d}">${d}</option>`).join("");
-  dormFilterEl.innerHTML = `<option value="">Все общежития</option>` +
-    dorms.map(d => `<option value="${d}">${d}</option>`).join("");
-}
-
-/* ---------------- RENDER: EMPLOYEES ---------------- */
-function renderTable(){
-  let list = employees.slice();
-
-  const fDept = (deptFilterEl.value || "").trim();
-  const fDorm = (dormFilterEl.value || "").trim();
-  const fName = (fioSearchEl.value || "").trim().toLowerCase();
-
-  if (fDept) list = list.filter(e => (e.department || "").trim() === fDept);
-  if (fDorm) list = list.filter(e => (e.dorm || "").trim() === fDorm);
-  if (fName) list = list.filter(e => (e.fullName || "").toLowerCase().includes(fName));
-
-  if (!list.length){
-    employeesTbody.innerHTML = `<tr><td colspan="6" class="center muted">Нет данных по текущим фильтрам</td></tr>`;
-    return;
-  }
-
-  employeesTbody.innerHTML = list.map(e => {
-    const editable = canEditRow(e);
-    const disabledAttr = editable ? "" : "disabled";
-    const delDisabled = editable ? "" : "disabled";
-
-    return `
-      <tr data-id="${e.id}">
-        <td><input name="fullName" value="${escapeHtml(e.fullName || "")}" ${disabledAttr}></td>
-        <td><select name="department" ${disabledAttr}>${optsWithExtra(departments, e.department)}</select></td>
-        <td><select name="dorm" ${disabledAttr}>${optsWithExtra(dorms, e.dorm)}</select></td>
-        <td><select name="from" ${disabledAttr}>${opts(locations, e.from)}</select></td>
-        <td><select name="to" ${disabledAttr}>${opts(locations, e.to)}</select></td>
-        <td class="center"><button class="btn-danger" data-del ${delDisabled}>×</button></td>
-      </tr>
-    `;
-  }).join("");
-}
-
-/* изменения (input/change) */
-employeesTbody.addEventListener("input", handleRowChange);
-employeesTbody.addEventListener("change", handleRowChange);
-
-function handleRowChange(e){
-  const tr = e.target.closest("tr");
-  if (!tr) return;
-
-  const id = tr.dataset.id;
-  const emp = employees.find(x => x.id === id);
-  if (!emp) return;
-
-  if (!canEditRow(emp)) return; // защита
-
-  const field = e.target.name;
-  if (!field) return;
-
-  emp[field] = e.target.value;
-
-  // если импортом/вручную ввели новые значения участков/общаг — добавим в справочник
-  if (field === "department") ensureInList(departments, (emp.department||"").trim());
-  if (field === "dorm") ensureInList(dorms, (emp.dorm||"").trim());
-
-  save();
-  rebuildFilters(); // обновит списки, если расширились
-  renderTable();
-  renderSummary();
-}
-
-/* удаление */
-employeesTbody.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-del]");
-  if (!btn) return;
-  if (btn.disabled) return;
-
-  const tr = btn.closest("tr");
-  if (!tr) return;
-
-  const id = tr.dataset.id;
-  const emp = employees.find(x => x.id === id);
-  if (!emp) return;
-
-  if (!canEditRow(emp)) return;
-
-  employees = employees.filter(x => x.id !== id);
-  save();
-  renderTable();
-  renderSummary();
+departments.forEach(d=>{
+  const o=document.createElement("option");
+  o.value=o.textContent=d;
+  deptFilter.appendChild(o);
 });
 
-/* добавление */
-addBtn.addEventListener("click", () => {
-  if (!canAdd()) return;
-
-  const role = getRole();
-  const selectedDept = (deptFilterEl.value || "").trim();
-
-  employees.push({
-    id: "emp_" + Date.now() + "_" + Math.random().toString(16).slice(2),
-    fullName: "",
-    department: role === "foreman" ? selectedDept : (selectedDept || ""),
-    dorm: (dormFilterEl.value || "").trim(),
-    from: "",
-    to: ""
-  });
-
-  save();
-  renderTable();
+/* ---------------- REALTIME LOAD ---------------- */
+onSnapshot(col, snap=>{
+  employees = snap.docs.map(d=>({id:d.id,...d.data()}));
+  render();
 });
 
-/* ---------------- SUMMARY ---------------- */
-function normalized(val, dorm){
-  if (!val) return "";
-  if (val === "Дом") return (dorm || "(нет общежития)");
-  return val;
-}
+/* ---------------- RENDER ---------------- */
+function render(){
+  let list=[...employees];
 
-function renderSummary(){
-  const valid = employees.filter(e =>
-    (e.fullName || "").trim() &&
-    (e.from || "").trim() &&
-    (e.to || "").trim()
-  );
+  if(deptFilter.value)
+    list=list.filter(e=>e.department===deptFilter.value);
 
-  summaryTotalEl.textContent = String(valid.length);
+  if(search.value)
+    list=list.filter(e=>e.fullName?.toLowerCase().includes(search.value.toLowerCase()));
 
-  if (!valid.length){
-    summaryTbody.innerHTML = `<tr><td colspan="3" class="center muted">Нет данных</td></tr>`;
-    return;
-  }
-
-  const groups = {};
-  for (const e of valid){
-    const from = normalized((e.from||"").trim(), (e.dorm||"").trim());
-    const to = normalized((e.to||"").trim(), (e.dorm||"").trim());
-    const key = from + "|" + to;
-    groups[key] = groups[key] || { from, to, count: 0 };
-    groups[key].count += 1;
-  }
-
-  summaryTbody.innerHTML = Object.values(groups).map(g => `
+  tbody.innerHTML=list.map(e=>`
     <tr>
-      <td>${escapeHtml(g.from)}</td>
-      <td>${escapeHtml(g.to)}</td>
-      <td>${g.count}</td>
+      <td><input value="${e.fullName||""}" data-id="${e.id}" data-f="fullName"></td>
+      <td>${sel(departments,e.department,e.id,"department")}</td>
+      <td>${sel(dorms,e.dorm,e.id,"dorm")}</td>
+      <td>${sel(places,e.from,e.id,"from")}</td>
+      <td>${sel(places,e.to,e.id,"to")}</td>
+      <td><button class="btn red" data-del="${e.id}">×</button></td>
     </tr>
   `).join("");
 }
 
-refreshSummaryBtn.addEventListener("click", renderSummary);
-
-/* ---------------- IMPORT ---------------- */
-importBtn.addEventListener("click", () => {
-  if (getRole() === "transport") return;
-  importResult.textContent = "";
-  importText.value = "";
-  importReplaceAll.checked = false;
-  importModal.style.display = "block";
-});
-importClose.addEventListener("click", () => { importModal.style.display = "none"; });
-
-function parseTSV(tsv){
-  const lines = (tsv || "")
-    .split(/\r?\n/)
-    .map(l => l.replace(/\u00A0/g, " ").trim())
-    .filter(Boolean);
-
-  const rows = [];
-  for (const line of lines){
-    const cols = line.includes("\t")
-      ? line.split("\t").map(c => (c || "").trim())
-      : line.split(/\s{2,}/).map(c => (c || "").trim());
-
-    if (!cols.length) continue;
-    if ((cols[0] || "").toLowerCase() === "фио") continue;
-
-    const fullName = (cols[0] || "").trim();
-    const department = normalizeDepartment((cols[1] || "").trim());
-    const dorm = normalizeDorm((cols[2] || "").trim());
-
-    if (!fullName) continue;
-    rows.push({ fullName, department, dorm });
-  }
-  return rows;
+function sel(arr,val,id,f){
+  return `<select data-id="${id}" data-f="${f}">
+    <option value=""></option>
+    ${arr.map(x=>`<option ${x===val?"selected":""}>${x}</option>`).join("")}
+  </select>`;
 }
 
-importRun.addEventListener("click", () => {
-  if (getRole() === "transport") return;
-
-  const rows = parseTSV(importText.value);
-  if (!rows.length){
-    importResult.textContent = "Ничего не импортировано: проверь формат (ФИО / Участок / Общежитие).";
-    return;
-  }
-
-  // убираем дубли внутри вставки (последняя строка побеждает)
-  const map = new Map();
-  let dupInPaste = 0;
-  for (const r of rows){
-    const k = nameKey(r.fullName);
-    if (map.has(k)) dupInPaste++;
-    map.set(k, r);
-  }
-  const uniqueRows = Array.from(map.values());
-
-  let added = 0, updated = 0;
-
-  // если replaceAll — полностью заменяем
-  if (importReplaceAll.checked){
-    employees = uniqueRows.map((r, i) => {
-      ensureInList(departments, (r.department||"").trim());
-      ensureInList(dorms, (r.dorm||"").trim());
-      return {
-        id: "emp_seed_" + i + "_" + Date.now(),
-        fullName: r.fullName,
-        department: r.department || "",
-        dorm: r.dorm || "",
-        from: "",
-        to: ""
-      };
-    });
-    added = employees.length;
-  } else {
-    // перед объединением — можно очистить дубли уже в базе по ФИО
-    const base = new Map();
-    for (const e of employees) base.set(nameKey(e.fullName), e);
-    employees = Array.from(base.values());
-
-    for (const r of uniqueRows){
-      ensureInList(departments, (r.department||"").trim());
-      ensureInList(dorms, (r.dorm||"").trim());
-
-      const k = nameKey(r.fullName);
-      const existing = employees.find(e => nameKey(e.fullName) === k);
-
-      if (existing){
-        if (r.department) existing.department = r.department;
-        if (r.dorm) existing.dorm = r.dorm;
-        updated++;
-      } else {
-        employees.push({
-          id: "emp_" + Date.now() + "_" + Math.random().toString(16).slice(2),
-          fullName: r.fullName,
-          department: r.department || "",
-          dorm: r.dorm || "",
-          from: "",
-          to: ""
-        });
-        added++;
-      }
-    }
-  }
-
-  save();
-  rebuildFilters();
-  renderTable();
-  renderSummary();
-  updateRoleUI();
-
-  importResult.textContent =
-    `Готово. Добавлено: ${added}, обновлено: ${updated}` +
-    (dupInPaste ? ` (дублей в вставке убрано: ${dupInPaste})` : "") +
-    ".";
+/* ---------------- EVENTS ---------------- */
+tbody.addEventListener("change", async e=>{
+  const id=e.target.dataset.id;
+  const f=e.target.dataset.f;
+  if(!id||!f)return;
+  await updateDoc(doc(db,"employees",id),{[f]:e.target.value});
 });
 
-/* ---------------- TABS ---------------- */
-document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+tbody.addEventListener("input", async e=>{
+  const id=e.target.dataset.id;
+  const f=e.target.dataset.f;
+  if(f!=="fullName")return;
+  await updateDoc(doc(db,"employees",id),{fullName:e.target.value});
+});
+
+tbody.addEventListener("click", async e=>{
+  if(!e.target.dataset.del)return;
+  await deleteDoc(doc(db,"employees",e.target.dataset.del));
+});
+
+document.getElementById("addBtn").onclick=async()=>{
+  await addDoc(col,{
+    fullName:"",
+    department:deptFilter.value||"",
+    dorm:"",
+    from:"",
+    to:""
   });
-});
+};
 
-/* ---------------- INIT ---------------- */
-rebuildFilters();
-renderTable();
-renderSummary();
-updateRoleUI();
+deptFilter.onchange=render;
+search.oninput=render;
 
-roleEl.addEventListener("change", updateRoleUI);
-deptFilterEl.addEventListener("change", () => { renderTable(); updateRoleUI(); });
-dormFilterEl.addEventListener("change", renderTable);
-fioSearchEl.addEventListener("input", renderTable);
 </script>
-
 </body>
 </html>
+
