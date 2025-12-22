@@ -18,7 +18,8 @@ th{background:#e0ecff}
 </head>
 
 <body>
-<h1>Планирование развозки (Firestore)</h1>
+
+<h1>Планирование развозки (Firebase)</h1>
 
 <div class="controls">
   <select id="deptFilter">
@@ -44,15 +45,21 @@ th{background:#e0ecff}
 <tbody id="tbody"></tbody>
 </table>
 
+<!-- 🔥 FIREBASE -->
 <script type="module">
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+/* ---------- Firebase CDN imports ---------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+/* ---------- ТВОЙ CONFIG ---------- */
 const firebaseConfig = {
   apiKey: "AIzaSyB8vMgNgtbrGPf21SeGsxhCaeeS3DLuzEc",
   authDomain: "transpotkit.firebaseapp.com",
@@ -63,11 +70,12 @@ const firebaseConfig = {
   measurementId: "G-5BDNMYC33X"
 };
 
-// Initialize Firebase
+/* ---------- Init ---------- */
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const db = getFirestore(app);
+const employeesCol = collection(db, "employees");
 
-/* ---------------- DATA ---------------- */
+/* ---------- Справочники ---------- */
 const departments = [
   "ЛЦП №1","ЛЦП №2","ЛЦП№3","Потолки","Арм.производство",
   "Цех подготовки","СТК","ВИС","ЭОМ","БСЦ","Кровля","Фасад"
@@ -83,26 +91,28 @@ const places = [
   "Таруса","Черемушки","Королев/Коммунарка","Дом"
 ];
 
+/* ---------- State ---------- */
 let employees = [];
 
-/* ---------------- UI ---------------- */
+/* ---------- UI ---------- */
 const tbody = document.getElementById("tbody");
 const deptFilter = document.getElementById("deptFilter");
 const search = document.getElementById("search");
 
+/* фильтр по участку */
 departments.forEach(d=>{
   const o=document.createElement("option");
   o.value=o.textContent=d;
   deptFilter.appendChild(o);
 });
 
-/* ---------------- REALTIME LOAD ---------------- */
-onSnapshot(col, snap=>{
-  employees = snap.docs.map(d=>({id:d.id,...d.data()}));
+/* ---------- Realtime загрузка ---------- */
+onSnapshot(employeesCol, snapshot=>{
+  employees = snapshot.docs.map(d=>({ id:d.id, ...d.data() }));
   render();
 });
 
-/* ---------------- RENDER ---------------- */
+/* ---------- Render ---------- */
 function render(){
   let list=[...employees];
 
@@ -110,28 +120,28 @@ function render(){
     list=list.filter(e=>e.department===deptFilter.value);
 
   if(search.value)
-    list=list.filter(e=>e.fullName?.toLowerCase().includes(search.value.toLowerCase()));
+    list=list.filter(e=>(e.fullName||"").toLowerCase().includes(search.value.toLowerCase()));
 
   tbody.innerHTML=list.map(e=>`
     <tr>
       <td><input value="${e.fullName||""}" data-id="${e.id}" data-f="fullName"></td>
-      <td>${sel(departments,e.department,e.id,"department")}</td>
-      <td>${sel(dorms,e.dorm,e.id,"dorm")}</td>
-      <td>${sel(places,e.from,e.id,"from")}</td>
-      <td>${sel(places,e.to,e.id,"to")}</td>
+      <td>${select(departments,e.department,e.id,"department")}</td>
+      <td>${select(dorms,e.dorm,e.id,"dorm")}</td>
+      <td>${select(places,e.from,e.id,"from")}</td>
+      <td>${select(places,e.to,e.id,"to")}</td>
       <td><button class="btn red" data-del="${e.id}">×</button></td>
     </tr>
   `).join("");
 }
 
-function sel(arr,val,id,f){
+function select(arr,val,id,f){
   return `<select data-id="${id}" data-f="${f}">
     <option value=""></option>
     ${arr.map(x=>`<option ${x===val?"selected":""}>${x}</option>`).join("")}
   </select>`;
 }
 
-/* ---------------- EVENTS ---------------- */
+/* ---------- Events ---------- */
 tbody.addEventListener("change", async e=>{
   const id=e.target.dataset.id;
   const f=e.target.dataset.f;
@@ -152,7 +162,7 @@ tbody.addEventListener("click", async e=>{
 });
 
 document.getElementById("addBtn").onclick=async()=>{
-  await addDoc(col,{
+  await addDoc(employeesCol,{
     fullName:"",
     department:deptFilter.value||"",
     dorm:"",
@@ -163,9 +173,7 @@ document.getElementById("addBtn").onclick=async()=>{
 
 deptFilter.onchange=render;
 search.oninput=render;
-
 </script>
+
 </body>
 </html>
-
-
