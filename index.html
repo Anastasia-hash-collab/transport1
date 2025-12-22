@@ -4,175 +4,316 @@
 <meta charset="UTF-8">
 <title>Планирование транспорта</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-body{font-family:system-ui;padding:20px;background:#eef2ff}
-h1{color:#1e40af}
-select,input,button{padding:6px}
-table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff}
-th,td{border:1px solid #ccc;padding:6px}
-th{background:#e0ecff}
-.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.btn{background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer}
-.btn.red{background:#dc2626}
+:root{
+  --blue:#2563eb;
+  --blue2:#0ea5e9;
+  --bg:#eef2ff;
+  --card:#ffffff;
+  --border:#dbe1f2;
+  --text:#0f172a;
+  --muted:#64748b;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  padding:20px;
+  font-family:Inter,system-ui,sans-serif;
+  background:linear-gradient(135deg,#e0f2fe,#eef2ff);
+  color:var(--text);
+}
+h1{margin:0 0 16px;color:#1e40af}
+
+/* tabs */
+.tabs{display:flex;gap:10px;margin-bottom:16px}
+.tab-btn{
+  padding:10px 18px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:#dbeafe;
+  font-weight:700;
+  cursor:pointer;
+}
+.tab-btn.active{background:#1e40af;color:#fff}
+.tab{display:none}
+.tab.active{display:block}
+
+/* card */
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 20px 40px rgba(15,23,42,.1);
+}
+
+/* controls */
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:flex-end;
+  margin-bottom:14px;
+}
+.filter{
+  min-width:200px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-size:13px;
+}
+.controls-right{margin-left:auto}
+
+/* inputs */
+input,select{
+  padding:7px 10px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  font-size:14px;
+}
+input:focus,select:focus{
+  outline:none;
+  border-color:var(--blue);
+  box-shadow:0 0 0 2px rgba(37,99,235,.15);
+}
+
+/* buttons */
+.btn{
+  border:none;
+  border-radius:999px;
+  padding:10px 16px;
+  font-weight:700;
+  cursor:pointer;
+}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-red{
+  background:#dc2626;
+  color:#fff;
+  border-radius:8px;
+  padding:6px 10px;
+}
+
+/* table */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{
+  background:#e0ecff;
+  color:#1e40af;
+  padding:10px;
+}
+td{
+  padding:6px 8px;
+  border-bottom:1px solid var(--border);
+}
+tr:nth-child(even) td{background:#f6f8ff}
+.center{text-align:center}
+.muted{font-size:12px;color:var(--muted)}
 </style>
 </head>
 
 <body>
 
-<h1>Планирование развозки (Firebase)</h1>
+<h1>Планирование развозки сотрудников</h1>
 
-<div class="controls">
-  <select id="deptFilter">
-    <option value="">Все участки</option>
-  </select>
-
-  <input id="search" placeholder="Поиск ФИО">
-
-  <button id="addBtn" class="btn">+ Добавить</button>
+<div class="tabs">
+  <button class="tab-btn active" data-tab="employees">Сотрудники</button>
+  <button class="tab-btn" data-tab="summary">Сводка</button>
 </div>
 
-<table>
-<thead>
-<tr>
-<th>ФИО</th>
-<th>Участок</th>
-<th>Общежитие</th>
-<th>Откуда</th>
-<th>Куда</th>
-<th></th>
-</tr>
-</thead>
-<tbody id="tbody"></tbody>
-</table>
+<!-- Сотрудники -->
+<div id="tab-employees" class="tab active">
+  <div class="card">
 
-<!-- 🔥 FIREBASE -->
+    <div class="controls">
+      <div class="filter">
+        Участок
+        <select id="deptFilter">
+          <option value="">Все участки</option>
+        </select>
+      </div>
+
+      <div class="filter">
+        Общежитие
+        <select id="dormFilter">
+          <option value="">Все общежития</option>
+        </select>
+      </div>
+
+      <div class="filter" style="min-width:260px">
+        Поиск ФИО
+        <input id="search" placeholder="Введите ФИО">
+      </div>
+
+      <div class="controls-right">
+        <button id="addBtn" class="btn btn-blue">+ Добавить</button>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ФИО</th>
+          <th>Участок</th>
+          <th>Общежитие</th>
+          <th>Откуда</th>
+          <th>Куда</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+  </div>
+</div>
+
+<!-- Сводка -->
+<div id="tab-summary" class="tab">
+  <div class="card">
+    <button class="btn btn-blue" id="refreshSummary">Обновить</button>
+
+    <table style="margin-top:12px">
+      <thead>
+        <tr>
+          <th>Откуда</th>
+          <th>Куда</th>
+          <th>Кол-во</th>
+        </tr>
+      </thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+
+    <div class="muted" style="margin-top:8px">
+      Всего людей с маршрутом: <span id="summaryTotal">0</span>
+    </div>
+  </div>
+</div>
+
 <script type="module">
-/* ---------- Firebase CDN imports ---------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  doc,
-  updateDoc,
-  deleteDoc,
-  onSnapshot
+  getFirestore, collection, addDoc, doc,
+  updateDoc, deleteDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-/* ---------- ТВОЙ CONFIG ---------- */
+/* Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyB8vMgNgtbrGPf21SeGsxhCaeeS3DLuzEc",
   authDomain: "transpotkit.firebaseapp.com",
   projectId: "transpotkit",
   storageBucket: "transpotkit.firebasestorage.app",
   messagingSenderId: "276561044748",
-  appId: "1:276561044748:web:8de739a57f964944559529",
-  measurementId: "G-5BDNMYC33X"
+  appId: "1:276561044748:web:8de739a57f964944559529"
 };
 
-/* ---------- Init ---------- */
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const employeesCol = collection(db, "employees");
+const col = collection(db,"employees");
 
-/* ---------- Справочники ---------- */
-const departments = [
-  "ЛЦП №1","ЛЦП №2","ЛЦП№3","Потолки","Арм.производство",
-  "Цех подготовки","СТК","ВИС","ЭОМ","БСЦ","Кровля","Фасад"
-];
+/* справочники */
+const departments=["ЛЦП №1","ЛЦП №2","ЛЦП№3","Потолки","Арм.производство","Цех подготовки","СТК","ВИС","ЭОМ","БСЦ","Кровля","Фасад"];
+const dorms=["Общежитие Летово","Общежитие Мытищи","Общежитие Плещеева","Общежитие Бекасово","Общежитие Марушкино","Общежитие Советская 4"];
+const places=["Завод Марушкино","Яковлево","9я Северная","Новохохловская","Таруса","Черемушки","Королев/Коммунарка","Дом"];
 
-const dorms = [
-  "Общежитие Летово","Общежитие Мытищи","Общежитие Плещеева",
-  "Общежитие Бекасово","Общежитие Марушкино","Общежитие Советская 4"
-];
+let employees=[];
 
-const places = [
-  "Завод Марушкино","Яковлево","9я Северная","Новохохловская",
-  "Таруса","Черемушки","Королев/Коммунарка","Дом"
-];
+/* filters */
+const deptFilter=document.getElementById("deptFilter");
+const dormFilter=document.getElementById("dormFilter");
 
-/* ---------- State ---------- */
-let employees = [];
-
-/* ---------- UI ---------- */
-const tbody = document.getElementById("tbody");
-const deptFilter = document.getElementById("deptFilter");
-const search = document.getElementById("search");
-
-/* фильтр по участку */
 departments.forEach(d=>{
-  const o=document.createElement("option");
-  o.value=o.textContent=d;
-  deptFilter.appendChild(o);
+  deptFilter.append(new Option(d,d));
+});
+dorms.forEach(d=>{
+  dormFilter.append(new Option(d,d));
 });
 
-/* ---------- Realtime загрузка ---------- */
-onSnapshot(employeesCol, snapshot=>{
-  employees = snapshot.docs.map(d=>({ id:d.id, ...d.data() }));
-  render();
+/* realtime */
+onSnapshot(col,snap=>{
+  employees=snap.docs.map(d=>({id:d.id,...d.data()}));
+  renderEmployees();
+  renderSummary();
 });
 
-/* ---------- Render ---------- */
-function render(){
+/* render employees */
+function renderEmployees(){
   let list=[...employees];
 
   if(deptFilter.value)
     list=list.filter(e=>e.department===deptFilter.value);
-
+  if(dormFilter.value)
+    list=list.filter(e=>e.dorm===dormFilter.value);
   if(search.value)
     list=list.filter(e=>(e.fullName||"").toLowerCase().includes(search.value.toLowerCase()));
 
   tbody.innerHTML=list.map(e=>`
     <tr>
       <td><input value="${e.fullName||""}" data-id="${e.id}" data-f="fullName"></td>
-      <td>${select(departments,e.department,e.id,"department")}</td>
-      <td>${select(dorms,e.dorm,e.id,"dorm")}</td>
-      <td>${select(places,e.from,e.id,"from")}</td>
-      <td>${select(places,e.to,e.id,"to")}</td>
-      <td><button class="btn red" data-del="${e.id}">×</button></td>
+      <td>${sel(departments,e.department,e.id,"department")}</td>
+      <td>${sel(dorms,e.dorm,e.id,"dorm")}</td>
+      <td>${sel(places,e.from,e.id,"from")}</td>
+      <td>${sel(places,e.to,e.id,"to")}</td>
+      <td class="center"><button class="btn-red" data-del="${e.id}">×</button></td>
     </tr>
   `).join("");
 }
 
-function select(arr,val,id,f){
+function sel(arr,val,id,f){
   return `<select data-id="${id}" data-f="${f}">
     <option value=""></option>
     ${arr.map(x=>`<option ${x===val?"selected":""}>${x}</option>`).join("")}
   </select>`;
 }
 
-/* ---------- Events ---------- */
-tbody.addEventListener("change", async e=>{
-  const id=e.target.dataset.id;
-  const f=e.target.dataset.f;
-  if(!id||!f)return;
-  await updateDoc(doc(db,"employees",id),{[f]:e.target.value});
+/* events */
+tbody.addEventListener("change",e=>{
+  if(!e.target.dataset.id)return;
+  updateDoc(doc(db,"employees",e.target.dataset.id),{[e.target.dataset.f]:e.target.value});
 });
-
-tbody.addEventListener("input", async e=>{
-  const id=e.target.dataset.id;
-  const f=e.target.dataset.f;
-  if(f!=="fullName")return;
-  await updateDoc(doc(db,"employees",id),{fullName:e.target.value});
+tbody.addEventListener("input",e=>{
+  if(e.target.dataset.f!=="fullName")return;
+  updateDoc(doc(db,"employees",e.target.dataset.id),{fullName:e.target.value});
 });
-
-tbody.addEventListener("click", async e=>{
+tbody.addEventListener("click",e=>{
   if(!e.target.dataset.del)return;
-  await deleteDoc(doc(db,"employees",e.target.dataset.del));
+  deleteDoc(doc(db,"employees",e.target.dataset.del));
 });
+addBtn.onclick=()=>addDoc(col,{fullName:"",department:deptFilter.value||"",dorm:dormFilter.value||"",from:"",to:""});
 
-document.getElementById("addBtn").onclick=async()=>{
-  await addDoc(employeesCol,{
-    fullName:"",
-    department:deptFilter.value||"",
-    dorm:"",
-    from:"",
-    to:""
+deptFilter.onchange=renderEmployees;
+dormFilter.onchange=renderEmployees;
+search.oninput=renderEmployees;
+
+/* summary */
+function renderSummary(){
+  const map={};
+  let total=0;
+  employees.forEach(e=>{
+    if(!e.from||!e.to)return;
+    const from=e.from==="Дом"?e.dorm:e.from;
+    const to=e.to==="Дом"?e.dorm:e.to;
+    if(!from||!to)return;
+    const k=from+"|"+to;
+    map[k]=(map[k]||0)+1;
+    total++;
   });
-};
 
-deptFilter.onchange=render;
-search.oninput=render;
+  summaryBody.innerHTML=Object.entries(map).map(([k,v])=>{
+    const [f,t]=k.split("|");
+    return `<tr><td>${f}</td><td>${t}</td><td>${v}</td></tr>`;
+  }).join("");
+  summaryTotal.textContent=total;
+}
+refreshSummary.onclick=renderSummary;
+
+/* tabs */
+document.querySelectorAll(".tab-btn").forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.getElementById("tab-"+b.dataset.tab).classList.add("active");
+  };
+});
 </script>
 
 </body>
