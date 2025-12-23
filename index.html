@@ -393,12 +393,30 @@ function renderSummary(){
     return `<tr><td>${f}</td><td>${t}</td><td>${v}</td></tr>`;
   }).join("");
   summaryTotal.textContent=total;
-}
+  });
+};
+  /* ---------- TAB NAVIGATION ---------- */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    // кнопки
+    document.querySelectorAll(".tab-btn")
+      .forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+
+    // вкладки
+    document.querySelectorAll(".tab")
+      .forEach(t=>t.classList.remove("active"));
+    document.getElementById("tab-"+btn.dataset.tab)
+      .classList.add("active");
+  });
+});
+
 </script>
 
 
 </body>
 </html>
+
 
 
 
