@@ -323,11 +323,17 @@ tbody.addEventListener("change",e=>{
   if(!id||!f) return;
   updateDoc(doc(db,"employees",id),{[f]:e.target.value});
 });
-tbody.addEventListener("input",e=>{
+tbody.addEventListener("blur", e=>{
   if(!editEnabled) return;
-  if(e.target.dataset?.f!=="fullName") return;
-  updateDoc(doc(db,"employees",e.target.dataset.id),{fullName:e.target.value});
-});
+  if(e.target.dataset?.f !== "fullName") return;
+
+  const id = e.target.dataset.id;
+  const value = e.target.value;
+
+  updateDoc(doc(db,"employees",id),{
+    fullName: value
+  });
+}, true); // ⚠️ важно: true = capture
 tbody.addEventListener("click",e=>{
   if(!editEnabled) return;
   const delId=e.target?.dataset?.del;
@@ -392,5 +398,6 @@ editToggle.onclick=()=>{
 
 </body>
 </html>
+
 
 
