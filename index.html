@@ -102,14 +102,24 @@ tr:nth-child(even) td{background:#f6f8ff}
 
 <h1>Планирование развозки сотрудников</h1>
 
+<!-- КНОПКА РЕДАКТИРОВАНИЯ -->
+<div class="card" style="margin-bottom:16px">
+  <div class="controls">
+    <button id="editToggle" class="btn btn-blue">🔒 Включить редактирование</button>
+    <span id="editStatus" class="muted">Режим просмотра</span>
+  </div>
+</div>
+
+<!-- ВКЛАДКИ -->
 <div class="tabs">
   <button class="tab-btn active" data-tab="employees">Сотрудники</button>
   <button class="tab-btn" data-tab="summary">Сводка</button>
 </div>
 
-<!-- Сотрудники -->
+<!-- СОТРУДНИКИ -->
 <div id="tab-employees" class="tab active">
   <div class="card">
+
     <div class="controls">
       <div class="filter">
         Участок
@@ -147,7 +157,7 @@ tr:nth-child(even) td{background:#f6f8ff}
   </div>
 </div>
 
-<!-- Сводка -->
+<!-- СВОДКА -->
 <div id="tab-summary" class="tab">
   <div class="card">
     <table>
@@ -169,7 +179,7 @@ tr:nth-child(even) td{background:#f6f8ff}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot }
-  from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 /* Firebase */
 const firebaseConfig = {
@@ -185,6 +195,10 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const col = collection(db,"employees");
 
+/* пароль */
+const EDIT_PASSWORD = "1010";
+let editEnabled = false;
+
 /* справочники */
 const departments=["ЛЦП №1","ЛЦП №2","ЛЦП №3","Потолки","Арм.производство","Цех подготовки","СТК","ВИС","ЭОМ","БСЦ","Кровля","Фасад","ОГМ","Стройка"];
 const dorms=["Общежитие Советская 4","Общежитие Мытищи","Общежитие Плещеева","Общежитие Бекасово","Общежитие Летово","Общежитие Марушкино","Общежитие Войковская"];
@@ -198,6 +212,8 @@ const tbody=document.getElementById("tbody");
 const addBtn=document.getElementById("addBtn");
 const summaryBody=document.getElementById("summaryBody");
 const summaryTotal=document.getElementById("summaryTotal");
+const editToggle=document.getElementById("editToggle");
+const editStatus=document.getElementById("editStatus");
 
 /* fill filters */
 departments.forEach(d=>deptFilter.append(new Option(d,d)));
@@ -207,113 +223,113 @@ let employees=[];
 
 /* realtime */
 onSnapshot(col, snap=>{
-  employees = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+  employees=snap.docs.map(d=>({id:d.id,...d.data()}));
   renderEmployees();
   renderSummary();
 });
 
-/* render */
+/* render employees */
 function renderEmployees(){
   let list=[...employees];
-
   if(deptFilter.value) list=list.filter(e=>(e.department||"")===deptFilter.value);
   if(dormFilter.value) list=list.filter(e=>(e.dorm||"")===dormFilter.value);
   if(search.value) list=list.filter(e=>(e.fullName||"").toLowerCase().includes(search.value.toLowerCase()));
 
-  tbody.innerHTML = list.map(e=>`
+  const dis = editEnabled ? "" : "disabled";
+  addBtn.disabled = !editEnabled;
+
+  tbody.innerHTML=list.map(e=>`
     <tr>
-      <td><input value="${escapeHtml(e.fullName||"")}" data-id="${e.id}" data-f="fullName"></td>
-      <td>${sel(departments,e.department,e.id,"department")}</td>
-      <td>${sel(dorms,e.dorm,e.id,"dorm")}</td>
-      <td>${sel(places,e.from,e.id,"from")}</td>
-      <td>${sel(places,e.to,e.id,"to")}</td>
-      <td class="center"><button class="btn-red" data-del="${e.id}">×</button></td>
+      <td><input ${dis} value="${e.fullName||""}" data-id="${e.id}" data-f="fullName"></td>
+      <td>${sel(departments,e.department,e.id,"department",dis)}</td>
+      <td>${sel(dorms,e.dorm,e.id,"dorm",dis)}</td>
+      <td>${sel(places,e.from,e.id,"from",dis)}</td>
+      <td>${sel(places,e.to,e.id,"to",dis)}</td>
+      <td class="center"><button ${dis} class="btn-red" data-del="${e.id}">×</button></td>
     </tr>
   `).join("");
 }
 
-function sel(arr,val,id,f){
-  return `<select data-id="${id}" data-f="${f}">
+function sel(arr,val,id,f,dis){
+  return `<select ${dis} data-id="${id}" data-f="${f}">
     <option value=""></option>
-    ${arr.map(x=>`<option ${x===(val||"")?"selected":""}>${escapeHtml(x)}</option>`).join("")}
+    ${arr.map(x=>`<option ${x===(val||"")?"selected":""}>${x}</option>`).join("")}
   </select>`;
 }
 
-function escapeHtml(s){
-  return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
 /* events */
-tbody.addEventListener("change", e=>{
+tbody.addEventListener("change",e=>{
+  if(!editEnabled) return;
   const id=e.target?.dataset?.id;
   const f=e.target?.dataset?.f;
   if(!id||!f) return;
   updateDoc(doc(db,"employees",id),{[f]:e.target.value});
 });
-
-tbody.addEventListener("input", e=>{
-  const id=e.target?.dataset?.id;
-  const f=e.target?.dataset?.f;
-  if(f!=="fullName"||!id) return;
-  updateDoc(doc(db,"employees",id),{fullName:e.target.value});
+tbody.addEventListener("input",e=>{
+  if(!editEnabled) return;
+  if(e.target.dataset?.f!=="fullName") return;
+  updateDoc(doc(db,"employees",e.target.dataset.id),{fullName:e.target.value});
 });
-
-tbody.addEventListener("click", e=>{
+tbody.addEventListener("click",e=>{
+  if(!editEnabled) return;
   const delId=e.target?.dataset?.del;
   if(!delId) return;
   deleteDoc(doc(db,"employees",delId));
 });
 
-addBtn.addEventListener("click", ()=>{
+addBtn.onclick=()=>{
+  if(!editEnabled) return;
   addDoc(col,{ fullName:"", department:deptFilter.value||"", dorm:dormFilter.value||"", from:"", to:"" });
-});
+};
 
+/* filters */
 deptFilter.onchange=renderEmployees;
 dormFilter.onchange=renderEmployees;
 search.oninput=renderEmployees;
 
 /* summary */
 function renderSummary(){
-  const map={};
-  let total=0;
-
+  const map={}; let total=0;
   for(const e of employees){
-    if(!e.from || !e.to) continue;
-
-    const from = (e.from === "Дом") ? (e.dorm||"") : e.from;
-    const to   = (e.to   === "Дом") ? (e.dorm||"") : e.to;
-
-    if(!from || !to) continue;
-
-    const key = from + "→" + to;
-    map[key] = (map[key]||0) + 1;
+    if(!e.from||!e.to) continue;
+    const from=e.from==="Дом"?e.dorm:e.from;
+    const to=e.to==="Дом"?e.dorm:e.to;
+    if(!from||!to) continue;
+    map[from+"→"+to]=(map[from+"→"+to]||0)+1;
     total++;
   }
-
-  summaryBody.innerHTML = Object.entries(map)
-    .sort((a,b)=>b[1]-a[1])
-    .map(([k,v])=>{
-      const [f,t]=k.split("→");
-      return `<tr><td>${escapeHtml(f)}</td><td>${escapeHtml(t)}</td><td>${v}</td></tr>`;
-    }).join("");
-
-  summaryTotal.textContent = String(total);
+  summaryBody.innerHTML=Object.entries(map).map(([k,v])=>{
+    const [f,t]=k.split("→");
+    return `<tr><td>${f}</td><td>${t}</td><td>${v}</td></tr>`;
+  }).join("");
+  summaryTotal.textContent=total;
 }
 
 /* tabs */
 document.querySelectorAll(".tab-btn").forEach(b=>{
-  b.addEventListener("click", ()=>{
+  b.onclick=()=>{
     document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
     b.classList.add("active");
     document.getElementById("tab-"+b.dataset.tab).classList.add("active");
-  });
+  };
 });
+
+/* edit toggle */
+editToggle.onclick=()=>{
+  if(!editEnabled){
+    const p=prompt("Введите пароль для редактирования");
+    if(p!==EDIT_PASSWORD) return alert("Неверный пароль");
+    editEnabled=true;
+    editToggle.textContent="🔓 Редактирование включено";
+    editStatus.textContent="Можно редактировать данные";
+  }else{
+    editEnabled=false;
+    editToggle.textContent="🔒 Включить редактирование";
+    editStatus.textContent="Режим просмотра";
+  }
+  renderEmployees();
+};
 </script>
 
 </body>
