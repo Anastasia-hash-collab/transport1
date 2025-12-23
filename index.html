@@ -53,7 +53,7 @@ h1{margin:0 0 16px;color:#1e40af}
   display:flex;
   flex-wrap:wrap;
   gap:12px;
-  align-items:flex-end;
+  align-items:center;
   margin-bottom:14px;
 }
 .filter{
@@ -85,6 +85,7 @@ input:focus,select:focus{
   padding:10px 16px;
   font-weight:700;
   cursor:pointer;
+  background:#e5edff;
 }
 .btn-blue{background:var(--blue);color:#fff}
 .btn-red{
@@ -115,33 +116,41 @@ tr:nth-child(even) td{background:#f6f8ff}
 
 <h1>Планирование развозки сотрудников</h1>
 
+<!-- РОЛИ -->
+<div class="card" style="margin-bottom:16px">
+  <div class="controls">
+    <strong>Роль:</strong>
+    <button id="role-viewer" class="btn">Просмотр</button>
+    <button id="role-foreman" class="btn">Начальник участка</button>
+    <button id="role-admin" class="btn btn-blue">Логист</button>
+    <span id="role-info" class="muted"></span>
+  </div>
+</div>
+
+<!-- ВКЛАДКИ -->
 <div class="tabs">
   <button class="tab-btn active" data-tab="employees">Сотрудники</button>
   <button class="tab-btn" data-tab="summary">Сводка</button>
 </div>
 
-<!-- Сотрудники -->
+<!-- СОТРУДНИКИ -->
 <div id="tab-employees" class="tab active">
   <div class="card">
 
     <div class="controls">
       <div class="filter">
         Участок
-        <select id="deptFilter">
-          <option value="">Все участки</option>
-        </select>
+        <select id="deptFilter"><option value="">Все</option></select>
       </div>
 
       <div class="filter">
         Общежитие
-        <select id="dormFilter">
-          <option value="">Все общежития</option>
-        </select>
+        <select id="dormFilter"><option value="">Все</option></select>
       </div>
 
       <div class="filter" style="min-width:260px">
         Поиск ФИО
-        <input id="search" placeholder="Введите ФИО">
+        <input id="search">
       </div>
 
       <div class="controls-right">
@@ -166,12 +175,10 @@ tr:nth-child(even) td{background:#f6f8ff}
   </div>
 </div>
 
-<!-- Сводка -->
+<!-- СВОДКА -->
 <div id="tab-summary" class="tab">
   <div class="card">
-    <button class="btn btn-blue" id="refreshSummary">Обновить</button>
-
-    <table style="margin-top:12px">
+    <table>
       <thead>
         <tr>
           <th>Откуда</th>
@@ -181,21 +188,18 @@ tr:nth-child(even) td{background:#f6f8ff}
       </thead>
       <tbody id="summaryBody"></tbody>
     </table>
-
     <div class="muted" style="margin-top:8px">
-      Всего людей с маршрутом: <span id="summaryTotal">0</span>
+      Всего людей: <span id="summaryTotal">0</span>
     </div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, doc,
-  updateDoc, deleteDoc, onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot }
+from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-/* ---------- Firebase ---------- */
+/* Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyB8vMgNgtbrGPf21SeGsxhCaeeS3DLuzEc",
   authDomain: "transpotkit.firebaseapp.com",
@@ -209,126 +213,72 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const col = collection(db,"employees");
 
-/* ---------- ПАРОЛИ ---------- */
-const ADMIN_PASSWORD = "1010";
+/* роли */
+let currentRole="viewer";
+let foremanDept="";
 
-const DEPT_PASSWORDS = {
-  "ЛЦП №1":"3245",
-  "ЛЦП №2":"4513",
-  "ЛЦП№3":"8415",
-  "ВИС":"3420",
-  "ЭОМ":"1205",
-  "СТК":"2565",
-  "Потолки":"7890",
-  "Арм.производство":"3357",
-  "Цех подготовки":"8766",
-  "Кровля":"6543",
-  "Фасад":"2267",
-  "БСЦ":"1324",
-  "ОГМ":"3476",
-  "Стройка":"1313"
+const ADMIN_PASSWORD="1010";
+const DEPT_PASSWORDS={
+  "ЛЦП №1":"3245","ЛЦП №2":"4513","ЛЦП №3":"8415","ВИС":"3420","ЭОМ":"1205",
+  "СТК":"2565","Потолки":"7890","Арм.производство":"3357","Цех подготовки":"8766",
+  "Кровля":"6543","Фасад":"2267","БСЦ":"1324","ОГМ":"3476","Стройка":"1313"
 };
 
-/* ---------- СОСТОЯНИЕ ДОСТУПА ---------- */
-let currentRole = "viewer";      // viewer | foreman | admin
-let authorizedDept = "";         // участок, куда вошли по паролю
+/* справочники */
+const departments=Object.keys(DEPT_PASSWORDS);
+const dorms=["Общежитие Летово","Общежитие Мытищи","Общежитие Плещеева",
+"Общежитие Бекасово","Общежитие Марушкино","Общежитие Советская 4"];
+const places=["Завод Марушкино","Яковлево","9я Северная","Новохохловская",
+"Таруса","Черемушки","Королев/Коммунарка","Дом"];
 
-/* ---------- UI ---------- */
-const deptFilter = document.getElementById("deptFilter");
-const dormFilter = document.getElementById("dormFilter");
-const search = document.getElementById("search");
-const tbody = document.getElementById("tbody");
-const addBtn = document.getElementById("addBtn");
+/* UI refs */
+const deptFilter=document.getElementById("deptFilter");
+const dormFilter=document.getElementById("dormFilter");
+const search=document.getElementById("search");
+const tbody=document.getElementById("tbody");
+const addBtn=document.getElementById("addBtn");
+const roleInfo=document.getElementById("role-info");
 
-/* ---------- СПРАВОЧНИКИ ---------- */
-const departments=[
-  "ЛЦП №1","ЛЦП №2","ЛЦП№3","Потолки","Арм.производство",
-  "Цех подготовки","СТК","ВИС","ЭОМ","БСЦ","Кровля","Фасад","ОГМ","Стройка"
-];
-const dorms=[
-  "Общежитие Летово","Общежитие Войковская","Общежитие Мытищи","Общежитие Плещеева",
-  "Общежитие Бекасово","Общежитие Марушкино","Общежитие Советская 4"
-];
-const places=[
-  "Завод Марушкино","Яковлево","9я Северная","Новохохловская",
-  "Таруса","Черемушки","Королев/Коммунарка","Дом"
-];
-
+/* fill filters */
 departments.forEach(d=>deptFilter.append(new Option(d,d)));
 dorms.forEach(d=>dormFilter.append(new Option(d,d)));
 
 let employees=[];
 
-/* ---------- ПРАВА ---------- */
-function canEdit(emp){
-  if (currentRole === "admin") return true;
-  if (emp.department === "не определен") return true;
-  return currentRole === "foreman" && emp.department === authorizedDept;
-}
-
-/* ---------- ВХОД ПО ПАРОЛЮ ---------- */
-function requirePasswordForDept(dept){
-  if (!dept) return;
-  if (dept === "не определен") {
-    currentRole = "foreman";
-    authorizedDept = dept;
-    return;
-  }
-
-  const pwd = prompt(`Введите пароль для участка «${dept}»`);
-  if (pwd === ADMIN_PASSWORD) {
-    currentRole = "admin";
-    authorizedDept = "";
-    alert("Вход как логист (админ)");
-    return;
-  }
-
-  if (DEPT_PASSWORDS[dept] && pwd === DEPT_PASSWORDS[dept]) {
-    currentRole = "foreman";
-    authorizedDept = dept;
-    alert(`Доступ к участку «${dept}» разрешён`);
-  } else {
-    alert("Неверный пароль");
-    deptFilter.value = "";
-    currentRole = "viewer";
-    authorizedDept = "";
-  }
-}
-
-/* ---------- DATA ---------- */
-onSnapshot(col,snap=>{
-  employees=snap.docs.map(d=>({id:d.id,...d.data()}));
+/* realtime */
+onSnapshot(col,s=>{
+  employees=s.docs.map(d=>({id:d.id,...d.data()}));
   renderEmployees();
   renderSummary();
 });
 
-/* ---------- RENDER ---------- */
+/* rights */
+function canEdit(e){
+  if(currentRole==="admin")return true;
+  if(currentRole==="foreman" && e.department===foremanDept)return true;
+  return false;
+}
+
+/* render employees */
 function renderEmployees(){
   let list=[...employees];
-
-  if(deptFilter.value)
-    list=list.filter(e=>e.department===deptFilter.value);
-  if(dormFilter.value)
-    list=list.filter(e=>e.dorm===dormFilter.value);
-  if(search.value)
-    list=list.filter(e=>(e.fullName||"").toLowerCase().includes(search.value.toLowerCase()));
+  if(deptFilter.value)list=list.filter(e=>e.department===deptFilter.value);
+  if(dormFilter.value)list=list.filter(e=>e.dorm===dormFilter.value);
+  if(search.value)list=list.filter(e=>(e.fullName||"").toLowerCase().includes(search.value.toLowerCase()));
 
   tbody.innerHTML=list.map(e=>{
-    const disabled = canEdit(e) ? "" : "disabled";
-    return `
-    <tr>
-      <td><input ${disabled} value="${e.fullName||""}" data-id="${e.id}" data-f="fullName"></td>
-      <td>${sel(departments,e.department,e.id,"department",disabled)}</td>
-      <td>${sel(dorms,e.dorm,e.id,"dorm",disabled)}</td>
-      <td>${sel(places,e.from,e.id,"from",disabled)}</td>
-      <td>${sel(places,e.to,e.id,"to",disabled)}</td>
-      <td class="center">
-        <button class="btn-red" data-del="${e.id}" ${disabled}>×</button>
-      </td>
+    const dis=canEdit(e)?"":"disabled";
+    return `<tr>
+      <td><input ${dis} value="${e.fullName||""}" data-id="${e.id}" data-f="fullName"></td>
+      <td>${sel(departments,e.department,e.id,"department",dis)}</td>
+      <td>${sel(dorms,e.dorm,e.id,"dorm",dis)}</td>
+      <td>${sel(places,e.from,e.id,"from",dis)}</td>
+      <td>${sel(places,e.to,e.id,"to",dis)}</td>
+      <td class="center"><button ${dis} class="btn-red" data-del="${e.id}">×</button></td>
     </tr>`;
   }).join("");
 
-  addBtn.disabled = currentRole !== "admin" && !(currentRole==="foreman" && deptFilter.value);
+  addBtn.disabled=currentRole==="viewer";
 }
 
 function sel(arr,val,id,f,dis){
@@ -338,48 +288,57 @@ function sel(arr,val,id,f,dis){
   </select>`;
 }
 
-/* ---------- EVENTS ---------- */
-deptFilter.onchange=()=>{
-  requirePasswordForDept(deptFilter.value);
-  renderEmployees();
-};
-dormFilter.onchange=renderEmployees;
-search.oninput=renderEmployees;
-
-tbody.addEventListener("change",e=>{
+/* events */
+tbody.onchange=e=>{
   if(!e.target.dataset.id)return;
   const emp=employees.find(x=>x.id===e.target.dataset.id);
   if(!canEdit(emp))return;
   updateDoc(doc(db,"employees",emp.id),{[e.target.dataset.f]:e.target.value});
-});
-tbody.addEventListener("input",e=>{
+};
+tbody.oninput=e=>{
   if(e.target.dataset.f!=="fullName")return;
   const emp=employees.find(x=>x.id===e.target.dataset.id);
   if(!canEdit(emp))return;
   updateDoc(doc(db,"employees",emp.id),{fullName:e.target.value});
-});
-tbody.addEventListener("click",e=>{
+};
+tbody.onclick=e=>{
   if(!e.target.dataset.del)return;
   const emp=employees.find(x=>x.id===e.target.dataset.del);
   if(!canEdit(emp))return;
   deleteDoc(doc(db,"employees",emp.id));
-});
-
-addBtn.onclick=()=>{
-  if(currentRole!=="admin" && currentRole!=="foreman")return;
-  addDoc(col,{
-    fullName:"",
-    department:deptFilter.value||"",
-    dorm:dormFilter.value||"",
-    from:"",
-    to:""
-  });
 };
 
-/* ---------- SUMMARY ---------- */
+addBtn.onclick=()=>{
+  if(currentRole==="viewer")return;
+  addDoc(col,{fullName:"",department:currentRole==="foreman"?foremanDept:"",dorm:"",from:"",to:""});
+};
+
+/* roles buttons */
+document.getElementById("role-viewer").onclick=()=>{
+  currentRole="viewer"; foremanDept="";
+  roleInfo.textContent="Режим просмотра";
+  renderEmployees();
+};
+document.getElementById("role-admin").onclick=()=>{
+  const p=prompt("Пароль логиста");
+  if(p!==ADMIN_PASSWORD)return alert("Неверный пароль");
+  currentRole="admin"; foremanDept="";
+  roleInfo.textContent="Логист (админ)";
+  renderEmployees();
+};
+document.getElementById("role-foreman").onclick=()=>{
+  const d=prompt("Участок");
+  if(!DEPT_PASSWORDS[d])return alert("Нет такого участка");
+  const p=prompt("Пароль участка");
+  if(p!==DEPT_PASSWORDS[d])return alert("Неверный пароль");
+  currentRole="foreman"; foremanDept=d;
+  roleInfo.textContent="Начальник участка: "+d;
+  renderEmployees();
+};
+
+/* summary */
 function renderSummary(){
-  const map={};
-  let total=0;
+  const map={}; let total=0;
   employees.forEach(e=>{
     if(!e.from||!e.to)return;
     const f=e.from==="Дом"?e.dorm:e.from;
@@ -393,36 +352,18 @@ function renderSummary(){
     return `<tr><td>${f}</td><td>${t}</td><td>${v}</td></tr>`;
   }).join("");
   summaryTotal.textContent=total;
-  
 }
-  
-/* ---------- TAB NAVIGATION ---------- */
-document.querySelectorAll(".tab-btn").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    // кнопки
-    document.querySelectorAll(".tab-btn")
-      .forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
 
-    // вкладки
-    document.querySelectorAll(".tab")
-      .forEach(t=>t.classList.remove("active"));
-    document.getElementById("tab-"+btn.dataset.tab)
-      .classList.add("active");
-  });
+/* tabs */
+document.querySelectorAll(".tab-btn").forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.getElementById("tab-"+b.dataset.tab).classList.add("active");
+  };
 });
-
 </script>
-
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
